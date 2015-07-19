@@ -1,0 +1,9 @@
+package goal
+
+/**
+ *
+ *
+ */
+class Resolver {
+
+}
