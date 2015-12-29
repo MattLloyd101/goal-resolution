@@ -1,9 +1,0 @@
-package goal
-
-/**
- *
- *
- */
-class Resolver {
-
-}
