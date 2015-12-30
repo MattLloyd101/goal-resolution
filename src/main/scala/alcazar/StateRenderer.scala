@@ -33,11 +33,16 @@ object StateRenderer {
     def renderLocation(grid: Map[Coord, TileType])(location: (Int, Int)): String = {
       val (x, y) = location
 
+      val upl = (x, y - 1)
+      val rightl = (x + 1, y)
+      val downl = (x, y + 1)
+      val leftl = (x - 1, y)
+
       val self = grid.getOrElse(location, OOB)
-      val up = grid.getOrElse((x, y - 1), OOB)
-      val right = grid.getOrElse((x + 1, y), OOB)
-      val down = grid.getOrElse((x, y + 1), OOB)
-      val left = grid.getOrElse((x - 1, y), OOB)
+      val up = grid.getOrElse(upl, OOB)
+      val right = grid.getOrElse(rightl, OOB)
+      val down = grid.getOrElse(downl, OOB)
+      val left = grid.getOrElse(leftl, OOB)
 
 
       (self, up, right, down, left) match {
@@ -46,6 +51,9 @@ object StateRenderer {
         case (Wall, Wall, Wall, _, Wall) => W.BM
         case (Wall, Wall, _, Wall, Wall) => W.RM
         case (Wall, _, Wall, Wall, Wall) => W.TM
+
+        case (Wall, _, GridH | GridV, _, GridH | GridV) => W.MH
+        case (Wall, GridH | GridV, _, GridH | GridV, _) => W.MV
 
         case (Wall, _, Wall, Wall, _) => W.TL
         case (Wall, _, _, Wall, Wall) => W.TR
@@ -58,8 +66,9 @@ object StateRenderer {
         case (Wall, _, _, Wall, Exit) => W.TR
         case (Wall, Wall, Exit, _, _) => W.BL
 
-        case (Empty, _, _, _, _) if y != 0 && y != h && y % 2 == 0 => W.DH
-        case (Empty, _, _, _, _) if x != 0 && x != w && x % 2 == 0 => W.DV
+
+        case (GridH, _, _, _, _) => W.DH
+        case (GridV, _, _, _, _) => W.DV
         case (Empty, _, _, _, _) => W.SP
         case (Exit, _, _, _, _) => W.SP
 
@@ -69,29 +78,57 @@ object StateRenderer {
       }
     }
 
+    @inline
+    def toScaled(x: Int, y: Int): Coord = (1+(x-1)*2, 1+(y-1)*2)
+
+    @inline
+    def fromScaled(x: Int, y: Int): Coord = (((x-1)/2)+1, ((y-1)/2)+1)
+
     val coords = for (x <- 0 until (w+1); y <- 0 until (h+1)) yield (x, y)
 
     val scaledGrid = state.grid map {
-      case (coord, v) if v.isInstanceOf[EdgeNode] => coord match {
-        case (x, y) if x == 0 => (0, 1+(y-1)*2) -> v
-        case (x, y) if x > state.width => (w, 1+(y-1)*2) -> v
-        case (x, y) if y == 0 => (1+(x-1)*2, y) -> v
-        case (x, y) if y > state.height => (1+(x-1)*2, h) -> v
-      }
-      case ((x, y), v) => (1+(x-1)*2, 1+(y-1)*2) -> v
+      // Edge nodes are slightly different as they aren't scaled the same way.
+      case (coord@(x, y), v) if v.isInstanceOf[EdgeNode] =>
+        val scaled = toScaled(x,y)
+        coord match {
+          case _ if x == 0 => (0, scaled._2) -> v
+          case _ if x > state.width => (w, scaled._2) -> v
+          case _ if y == 0 => (scaled._1, 0) -> v
+          case _ if y > state.height => (scaled._1, h) -> v
+        }
+      case ((x, y), v) => toScaled(x, y) -> v
     }
-    // generate a pure walled grid.
+
     val grid = coords.map { case coord =>
       coord -> scaledGrid.get(coord).map(nodeToTileType).getOrElse {
         coord match {
-          case (x, _) if x == 0 || x == w => Wall
-          case (_, y) if y == 0 || y == h => Wall
+          case (x, y) if x == 0 || x == w || y == 0 || y == h  => Wall
+
+          case (x, y) if y != 0 && y != h && y % 2 == 0 &&
+                         x != 0 && x != w && x % 2 == 0 => GridH
+
+          case (x, y) if y != 0 && y != h && y % 2 == 0 =>
+            val aboveNode = state.grid.get(fromScaled(x, y-1))
+            lazy val belowNode = state.grid.get(fromScaled(x, y+1))
+            aboveNode
+              .flatMap { n1 => belowNode.map { n2 => (n1, n2) } }
+              .filterNot { case (n1, n2) => state.isAdjacent(n1, n2) }
+              .map { _ => Wall }
+              .getOrElse(GridH)
+
+          case (x, y) if x != 0 && x != w && x % 2 == 0 =>
+            val leftNode = state.grid.get(fromScaled(x-1, y))
+            lazy val rightNode = state.grid.get(fromScaled(x+1, y))
+            leftNode
+              .flatMap { n1 => rightNode.map { n2 => (n1, n2) } }
+              .filterNot { case (n1, n2) => state.isAdjacent(n1, n2) }
+              .map { _ => Wall }
+              .getOrElse(GridV)
+
           case _ => Empty
         }
       }
     }.toMap
-
-
 
     val fn = renderLocation(grid)_
 

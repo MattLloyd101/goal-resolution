@@ -18,6 +18,7 @@ abstract class AlcazarState extends State {
     // TODO: Handle user defined walls
     case (out, AlcazarEdge(a, b)) => out + (a -> (b :: out.getOrElse(a, Nil))) + (b -> (a :: out.getOrElse(b, Nil)))
   }
+  lazy val coordMap: Map[Coord, List[Coord]] = edgeMap.map { case (node, seq) => node.coords -> seq.map(_.coords) }
   val path: List[AlcazarNode] = Nil
 
 
@@ -41,6 +42,7 @@ abstract class AlcazarState extends State {
   }
 
   def isAdjacent(a: AlcazarNode, b: AlcazarNode): Boolean = edgeMap.get(a).exists { list => list.contains(b) }
+  def isAdjacentCoords(a: Coord, b: Coord): Boolean = coordMap.get(a).exists { list => list.contains(b) }
 }
 
 object AlcazarState {
@@ -75,6 +77,8 @@ sealed trait TileType
 case object OOB extends TileType
 case object Wall extends TileType
 case object Exit extends TileType
+case object GridH extends TileType
+case object GridV extends TileType
 case object Empty extends TileType
 case object Tunnel extends TileType
 case object Optional extends TileType
