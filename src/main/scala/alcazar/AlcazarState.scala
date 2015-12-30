@@ -1,8 +1,8 @@
 package alcazar
 
 import goal.State
+
 import scala.annotation.tailrec
-import scala.language.implicitConversions
 
 /**
   * Created by matt on 29/12/2015.
@@ -31,7 +31,7 @@ abstract class AlcazarState extends State {
     generateGrid(nodes, Map())
   }
 
-  lazy val bounds: (Int, Int) = nodes.foldLeft((0, 0)) { case ((w, h), n) => (Math.max(w, n.x), Math.max(h, n.y)) }
+  lazy val bounds: (Int, Int) = nodes.filter(!_.isInstanceOf[EdgeNode]).foldLeft((0, 0)) { case ((w, h), n) => (Math.max(w, n.x), Math.max(h, n.y)) }
   lazy val width = bounds._1
   lazy val height = bounds._2
 
@@ -45,12 +45,10 @@ abstract class AlcazarState extends State {
 
 object AlcazarState {
 
-  def apply(nodes: List[AlcazarNode], edgeIndexes: List[(Int, Int)]): AlcazarState = {
-    new AlcazarState {
-      override val nodes: List[AlcazarNode] = nodes
-      override val edges: List[AlcazarEdge] = edgeIndexes.map {
-        case (a, b) => AlcazarEdge(nodes(a), nodes(b))
-      }
+  def apply(_nodes: List[AlcazarNode], edgeIndexes: List[(Int, Int)]): AlcazarState = new AlcazarState {
+    override val nodes: List[AlcazarNode] = _nodes
+    override val edges: List[AlcazarEdge] = edgeIndexes.map {
+      case (a, b) => AlcazarEdge(nodes(a), nodes(b))
     }
   }
 
@@ -76,6 +74,7 @@ case class TunnelNode(x: Int, y: Int) extends AlcazarNode
 sealed trait TileType
 case object OOB extends TileType
 case object Wall extends TileType
+case object Exit extends TileType
 case object Empty extends TileType
 case object Tunnel extends TileType
 case object Optional extends TileType

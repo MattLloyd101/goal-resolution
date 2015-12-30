@@ -3,6 +3,8 @@ package alcazar
 import alcazar.StateRenderer
 import goal.{NamedRule, CompoundRule}
 
+import scala.util.{Failure, Success}
+
 /**
   * Created by matt on 29/12/2015.
   */
@@ -38,7 +40,9 @@ object Main extends App {
   )
   val state = AlcazarState(nodes, edges)
 
-  println(StateRenderer.test)
+  println(StateRenderer.test2)
+  println ("\n")
+  println(StateRenderer.render(state))
   /*val alcazarRules = CompoundRule(
     NamedRule("has-corners", {
       case s: AlcazarState if
