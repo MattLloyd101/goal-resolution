@@ -44,16 +44,12 @@ object StateRenderer {
       val down = grid.getOrElse(downl, OOB)
       val left = grid.getOrElse(leftl, OOB)
 
-
       (self, up, right, down, left) match {
         case (Wall, Wall, Wall, Wall, Wall) => W.TJ
         case (Wall, Wall, Wall, Wall, _) => W.LM
         case (Wall, Wall, Wall, _, Wall) => W.BM
         case (Wall, Wall, _, Wall, Wall) => W.RM
         case (Wall, _, Wall, Wall, Wall) => W.TM
-
-        case (Wall, _, GridH | GridV, _, GridH | GridV) => W.MH
-        case (Wall, GridH | GridV, _, GridH | GridV, _) => W.MV
 
         case (Wall, _, Wall, Wall, _) => W.TL
         case (Wall, _, _, Wall, Wall) => W.TR
@@ -66,7 +62,12 @@ object StateRenderer {
         case (Wall, _, _, Wall, Exit) => W.TR
         case (Wall, Wall, Exit, _, _) => W.BL
 
+        case (Wall, GridH | GridV | GridX, Wall, GridH | GridV | GridX, GridH | GridV | GridX) => W.MH
+        case (Wall, GridH | GridV | GridX, GridH | GridV | GridX, GridH | GridV | GridX, Wall) => W.MH
+        case (Wall, Wall, GridH | GridV | GridX, GridH | GridV | GridX, GridH | GridV | GridX) => W.MV
+        case (Wall, GridH | GridV | GridX, GridH | GridV | GridX, Wall, GridH | GridV | GridX) => W.MV
 
+        case (GridX, _, _, _, _) => W.DV
         case (GridH, _, _, _, _) => W.DH
         case (GridV, _, _, _, _) => W.DV
         case (Empty, _, _, _, _) => W.SP
@@ -104,8 +105,9 @@ object StateRenderer {
         coord match {
           case (x, y) if x == 0 || x == w || y == 0 || y == h  => Wall
 
+          // The case where we are on a grid cross.
           case (x, y) if y != 0 && y != h && y % 2 == 0 &&
-                         x != 0 && x != w && x % 2 == 0 => GridH
+                         x != 0 && x != w && x % 2 == 0 => GridX
 
           case (x, y) if y != 0 && y != h && y % 2 == 0 =>
             val aboveNode = state.grid.get(fromScaled(x, y-1))
@@ -116,13 +118,19 @@ object StateRenderer {
               .map { _ => Wall }
               .getOrElse(GridH)
 
+          // walls and grid lines only appears between spaces i.e. %2==0
           case (x, y) if x != 0 && x != w && x % 2 == 0 =>
             val leftNode = state.grid.get(fromScaled(x-1, y))
+            // lazy as if left doesn't exist right isn't required.
             lazy val rightNode = state.grid.get(fromScaled(x+1, y))
+            // lookup the left and right nodes.
             leftNode
               .flatMap { n1 => rightNode.map { n2 => (n1, n2) } }
+              // filter to only those things that aren't adjacent
               .filterNot { case (n1, n2) => state.isAdjacent(n1, n2) }
+              // these must be walls as they aren't adjacent
               .map { _ => Wall }
+              // everything else is a free spot so draw the grid lines.
               .getOrElse(GridV)
 
           case _ => Empty
@@ -130,7 +138,21 @@ object StateRenderer {
       }
     }.toMap
 
-    val fn = renderLocation(grid)_
+    val grid2 = grid.map {
+      case (k@(x, y), GridX) =>
+        val list = List( (x, y-1), (x, y+1), (x-1, y), (x+1, y) )
+        // if any of the adjacent locations are walls
+        if (list.flatMap(grid.get).contains(Wall)) {
+          // then this is a wall too.
+          k -> Wall
+        } else {
+          k -> GridX
+        }
+
+      case (k, v) => k -> v
+    }
+
+    val fn = renderLocation(grid2)_
 
     val map: Map[Int, String] = (SortedMap.empty(Ordering[Int]) ++ coords.view.groupBy(_._2)).mapValues { row =>
       row.map(fn).mkString("")

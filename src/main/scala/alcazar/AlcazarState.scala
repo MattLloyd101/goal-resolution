@@ -77,6 +77,7 @@ sealed trait TileType
 case object OOB extends TileType
 case object Wall extends TileType
 case object Exit extends TileType
+case object GridX extends TileType
 case object GridH extends TileType
 case object GridV extends TileType
 case object Empty extends TileType
